@@ -2,7 +2,7 @@ base_config:
   - egs/egs_bases/syncnet/base.yaml
 
 init_from_ckpt: ''
-binary_data_dir: data/binary/th1kh
+binary_data_dir: /data/CMLRdataset/real3d_data/binarized
 task_cls: tasks.os_avatar.audio_lm3d_syncnet.SyncNetTask
 use_kv_dataset: true
 num_workers: 8 # 4

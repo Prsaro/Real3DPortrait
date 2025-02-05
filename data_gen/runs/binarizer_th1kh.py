@@ -6,6 +6,9 @@ from tqdm import trange
 import pickle
 from copy import deepcopy
 
+import sys
+sys.path.append('/zjs/')
+
 from data_util.face3d_helper import Face3DHelper
 from utils.commons.indexed_datasets import IndexedDataset, IndexedDatasetBuilder
 
@@ -43,23 +46,39 @@ if __name__ == '__main__':
     
     import glob,tqdm
     prefixs = ['val', 'train']
-    binarized_ds_path = "data/binary/th1kh"
+    ds_name = 'CMLR'
+    # ds_name = 'cleaned_data'
+    if ds_name in ['lrs3_trainval']:
+        vid_name_pattern ="*/*.mp4"
+    elif ds_name in ['TH1KH_512', 'CelebV-HQ', 'cleaned_data']:
+        vid_name_pattern = "*.mp4"
+    elif ds_name in ['lrs2', 'lrs3', 'voxceleb2', 'CMLR']:
+        vid_name_pattern = "*/*/*.mp4"
+    elif ds_name in ["RAVDESS", 'VFHQ']:
+        vid_name_pattern = "*/*/*/*.mp4"
+    else:
+        raise NotImplementedError() 
+    binarized_ds_path = "/data/CMLRdataset/real3d_data/binarized"
     os.makedirs(binarized_ds_path, exist_ok=True)
     for prefix in prefixs:
         databuilder = IndexedDatasetBuilder(os.path.join(binarized_ds_path, prefix), gzip=False, default_idx_size=1024*1024*1024*2)
-        raw_base_dir =  '/mnt/bn/ailabrenyi/entries/yezhenhui/datasets/raw/TH1KH_512/video'
-        mp4_names = glob.glob(os.path.join(raw_base_dir, '*.mp4'))
-        mp4_names = mp4_names[:1000]
+        raw_base_dir =  '/data/CMLRdataset/real3d_data/video'
+        # mp4_names = glob.glob(os.path.join(raw_base_dir, '*.mp4'))
+        mp4_names = glob.glob(os.path.join(raw_base_dir, vid_name_pattern))
+        if prefix == 'train':
+            mp4_names = mp4_names[1000:]
+        elif prefix == 'val':
+            mp4_names = mp4_names[:1000]
         cnt = 0
         scnt = 0
         pbar = tqdm.tqdm(enumerate(mp4_names), total=len(mp4_names))
         for i, mp4_name in pbar:
             cnt += 1
             if prefix == 'train':
-                if i % 100 == 0:
+                if i % 1000 == 0:
                     continue
             else:
-                if i % 100 != 0:
+                if i % 1000 != 0:
                     continue
             hubert_npy_name = mp4_name.replace("/video/", "/hubert/").replace(".mp4", "_hubert.npy")
             audio_npy_name = mp4_name.replace("/video/", "/mel_f0/").replace(".mp4", "_mel_f0.npy")
@@ -76,7 +95,8 @@ if __name__ == '__main__':
             audio_dict = load_audio_npy(audio_npy_name)
             hubert = np.load(hubert_npy_name)
             video_dict = load_video_npy(video_npy_name)
-            com_img_dir = mp4_name.replace("/video/", "/com_imgs/").replace(".mp4", "")
+            # 我没有生成com_imgs
+            com_img_dir = mp4_name.replace("/video/", "/gt_imgs/").replace(".mp4", "")
             num_com_imgs = len(glob.glob(os.path.join(com_img_dir, '*')))
             num_frames = len(video_dict['exp'])
             if num_com_imgs != num_frames:

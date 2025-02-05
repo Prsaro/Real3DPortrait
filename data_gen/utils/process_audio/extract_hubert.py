@@ -3,7 +3,13 @@ import soundfile as sf
 import numpy as np
 import torch
 import os
+import pickle
+import sys
+import tqdm
+sys.path.append("/zjs/")
 from utils.commons.hparams import set_hparams, hparams
+from utils.commons.os_utils import multiprocess_glob
+from utils.commons.multiprocess_utils import multiprocess_run_tqdm
 
 
 wav2vec2_processor = None
@@ -16,9 +22,9 @@ def get_hubert_from_16k_wav(wav_16k_name):
     return hubert
 
 @torch.no_grad()
-def get_hubert_from_16k_speech(speech, device="cuda:0"):
+def get_hubert_from_16k_speech(speech, device="cuda"):
     global hubert_model, wav2vec2_processor
-    local_path = '/home/tiger/.cache/huggingface/hub/models--facebook--hubert-large-ls960-ft/snapshots/ece5fabbf034c1073acae96d5401b25be96709d8'
+    local_path = '/zjs/models--facebook--hubert-large-ls960-ft/snapshots/ece5fabbf034c1073acae96d5401b25be96709d8'
     if hubert_model is None:
         print("Loading the HuBERT Model...")
         if os.path.exists(local_path):
@@ -79,17 +85,112 @@ def get_hubert_from_16k_speech(speech, device="cuda:0"):
 
     return ret
 
+def out_exist_job(vid_name):
+    out_name = vid_name.replace("/video/", "/hubert/").replace(".mp4","_hubert.npy") 
+    if os.path.exists(out_name):
+        return None
+    else:
+        return vid_name
+    
+def get_todo_vid_names(vid_names):
+    if len(vid_names) == 1: # nerf
+        return vid_names
+    todo_vid_names = []
+    for i, res in multiprocess_run_tqdm(out_exist_job, vid_names, num_workers=128):
+        if res is not None:
+            todo_vid_names.append(res)
+    return todo_vid_names
+
+def save_file(name, content):
+    with open(name, "wb") as f:
+        pickle.dump(content, f) 
+        
+def load_file(name):
+    with open(name, "rb") as f:
+        content = pickle.load(f)
+    return content
+
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('--video_id', type=str, default='May', help='')
+    parser.add_argument("--vid_dir", default='/data/cleaned_data/video')
+    parser.add_argument("--ds_name", default='cleaned_data')
+    parser.add_argument("--process_id", default=0, type=int)
+    parser.add_argument("--total_process", default=1, type=int)
+    parser.add_argument("--reset", action="store_true")
+    # parser.add_argument("--load_names", action="store_true")
+    parser.add_argument("--load_names", default=True, type=bool)
     args = parser.parse_args()
     ### Process Single Long Audio for NeRF dataset
     person_id = args.video_id
-    wav_16k_name = f"data/processed/videos/{person_id}/aud.wav"
-    hubert_npy_name = f"data/processed/videos/{person_id}/aud_hubert.npy"
-    speech_16k, _ = sf.read(wav_16k_name)
-    hubert_hidden = get_hubert_from_16k_speech(speech_16k)
-    np.save(hubert_npy_name, hubert_hidden.detach().numpy())
-    print(f"Saved at {hubert_npy_name}")
+    vid_dir = args.vid_dir
+    ds_name = args.ds_name
+    load_names = args.load_names
+    if ds_name.lower() == 'nerf':
+        wav_16k_name = f"data/processed/videos/{person_id}/aud.wav"
+        hubert_npy_name = f"data/processed/videos/{person_id}/aud_hubert.npy"
+        speech_16k, _ = sf.read(wav_16k_name)
+        hubert_hidden = get_hubert_from_16k_speech(speech_16k)
+        np.save(hubert_npy_name, hubert_hidden.detach().numpy())
+        print(f"Saved at {hubert_npy_name}")
+    else:
+        if ds_name in ['lrs3_trainval']:
+            vid_name_pattern = os.path.join(vid_dir, "*/*.mp4")
+        elif ds_name in ['TH1KH_512', 'CelebV-HQ', 'cleaned_data']:
+            vid_name_pattern = os.path.join(vid_dir, "*.mp4")
+        elif ds_name in ['lrs2', 'lrs3', 'voxceleb2', 'CMLR']:
+            vid_name_pattern = os.path.join(vid_dir, "*/*/*.mp4")
+        elif ds_name in ["RAVDESS", 'VFHQ']:
+            vid_name_pattern = os.path.join(vid_dir, "*/*/*/*.mp4")
+        else:
+            raise NotImplementedError()
+        
+        vid_names_path = os.path.join(vid_dir, "vid_names.pkl")
+        if os.path.exists(vid_names_path) and load_names:
+            print(f"loading vid names from {vid_names_path}")
+            vid_names = load_file(vid_names_path)
+        else:
+            vid_names = multiprocess_glob(vid_name_pattern)
+        vid_names = sorted(vid_names)
+        if not load_names:
+            print(f"saving vid names to {vid_names_path}")
+            save_file(vid_names_path, vid_names)
+    
+    aud_names = [video_name.replace("/video/", "/audio/").replace(".mp4",".wav") for video_name in vid_names]
+    
+    process_id = args.process_id
+    total_process = args.total_process
+    if total_process > 1:
+        assert process_id <= total_process -1
+        num_samples_per_process = len(vid_names) // total_process
+        if process_id == total_process:
+            aud_names = aud_names[process_id * num_samples_per_process : ]
+            vid_names = vid_names[process_id * num_samples_per_process : ]
+        else:
+            aud_names = aud_names[process_id * num_samples_per_process : (process_id+1) * num_samples_per_process]
+            vid_names = vid_names[process_id * num_samples_per_process : (process_id+1) * num_samples_per_process]
+    
+    if not args.reset:
+        vid_names = get_todo_vid_names(vid_names)
+    print(f"todo videos number: {len(vid_names)}")
+
+    failed_img_names = []
+    for i in tqdm.trange(len(vid_names), desc=f"process {process_id}: extracting hubert ..."):
+        vid_name = vid_names[i]
+        aud_name = aud_names[i]
+        try:
+            hubert_hidden = get_hubert_from_16k_wav(aud_name)
+            out_name = vid_name.replace("/video/", "/hubert/").replace(".mp4","_hubert.npy")
+            os.makedirs(os.path.dirname(out_name), exist_ok=True)
+            np.save(out_name, hubert_hidden.detach().numpy())
+        except Exception as e:
+            failed_img_names.append(vid_name)
+            print(f"Failed to process {vid_name}, {e}")
+        print(f"finished {i + 1} / {len(vid_names)} = {(i + 1) / len(vid_names):.4f}, failed {len(failed_img_names)} / {i + 1} = {len(failed_img_names) / (i + 1):.4f}")
+        sys.stdout.flush()
+    print(f"all failed image names: {failed_img_names}")
+    print(f"All finished!")
+
+

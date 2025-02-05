@@ -6,6 +6,10 @@ sys.path.append(os.path.abspath("./"))
 from utils.commons.hparams import hparams, set_hparams
 import importlib
 
+# import debugpy
+# debugpy.listen(5678)
+# debugpy.wait_for_client()
+
 
 def run_task():
     assert hparams['task_cls'] != ''

@@ -1,6 +1,7 @@
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 import sys
+sys.path.append("/zjs/")
 import glob
 import cv2
 import pickle
@@ -100,9 +101,9 @@ def get_todo_vid_names(vid_names):
 if __name__ == '__main__':
     import argparse, glob, tqdm, random
     parser = argparse.ArgumentParser()
-    parser.add_argument("--vid_dir", default='nerf')
-    parser.add_argument("--ds_name", default='data/raw/videos/May.mp4')
-    parser.add_argument("--num_workers", default=2, type=int)
+    parser.add_argument("--vid_dir", default='/data/cleaned_data/video')
+    parser.add_argument("--ds_name", default='cleaned_data')
+    parser.add_argument("--num_workers", default=16, type=int)
     parser.add_argument("--process_id", default=0, type=int)
     parser.add_argument("--total_process", default=1, type=int)
     parser.add_argument("--reset", action="store_true")
@@ -119,7 +120,7 @@ if __name__ == '__main__':
     else: # 处理整个数据集
         if ds_name in ['lrs3_trainval']:
             vid_name_pattern = os.path.join(vid_dir, "*/*.mp4")
-        elif ds_name in ['TH1KH_512', 'CelebV-HQ']:
+        elif ds_name in ['TH1KH_512', 'CelebV-HQ', 'cleaned_data']:
             vid_name_pattern = os.path.join(vid_dir, "*.mp4")
         elif ds_name in ['lrs2', 'lrs3', 'voxceleb2', 'CMLR']:
             vid_name_pattern = os.path.join(vid_dir, "*/*/*.mp4")

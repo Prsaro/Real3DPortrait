@@ -14,6 +14,7 @@ import random
 import pickle
 import os
 import sys
+sys.path.append("/zjs/")
 import cv2
 import argparse
 import tqdm
@@ -23,6 +24,8 @@ from deep_3drecon.deep_3drecon_models.bfm import ParametricFaceModel
 from deep_3drecon.secc_renderer import SECC_Renderer
 from utils.commons.os_utils import multiprocess_glob
 
+# gpuid=1
+# os.environ["CUDA_VISIBLE_DEVICES"] = str(gpuid)
 
 face_model = ParametricFaceModel(bfm_folder='deep_3drecon/BFM', 
             camera_distance=10, focal=1015, keypoint_mode='mediapipe')
@@ -479,9 +482,9 @@ def get_todo_vid_names(vid_names):
 if __name__ == '__main__':
     import argparse, glob, tqdm
     parser = argparse.ArgumentParser()
-    # parser.add_argument("--vid_dir", default='/home/tiger/datasets/raw/CelebV-HQ/video')
-    parser.add_argument("--vid_dir", default='data/raw/videos/May_10s.mp4')
-    parser.add_argument("--ds_name", default='nerf') # 'nerf' | 'CelebV-HQ' | 'TH1KH_512' | etc
+    parser.add_argument("--vid_dir", default='/data/cleaned_data/video/')
+    # parser.add_argument("--vid_dir", default='data/raw/videos/May_10s.mp4')
+    parser.add_argument("--ds_name", default='cleaned_data') # 'nerf' | 'CelebV-HQ' | 'TH1KH_512' | etc
     parser.add_argument("--seed", default=0, type=int)
     parser.add_argument("--process_id", default=0, type=int)
     parser.add_argument("--total_process", default=1, type=int)
@@ -505,7 +508,7 @@ if __name__ == '__main__':
     else: # 处理整个数据集
         if ds_name in ['lrs3_trainval']:
             vid_name_pattern = os.path.join(vid_dir, "*/*.mp4")
-        elif ds_name in ['TH1KH_512', 'CelebV-HQ']:
+        elif ds_name in ['TH1KH_512', 'CelebV-HQ', 'cleaned_data']:
             vid_name_pattern = os.path.join(vid_dir, "*.mp4")
         elif ds_name in ['lrs2', 'lrs3', 'voxceleb2', 'CMLR']:
             vid_name_pattern = os.path.join(vid_dir, "*/*/*.mp4")

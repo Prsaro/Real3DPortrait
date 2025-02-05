@@ -2,7 +2,7 @@ base_config:
   - egs/egs_bases/audio2motion/vae.yaml
 
 ds_name:  # 会覆盖下面的binary data dir
-binary_data_dir: data/binary/th1kh
+binary_data_dir: /data/CMLRdataset/real3d_data/binarized
 use_kv_dataset: true
 num_workers: 4
 
@@ -27,7 +27,7 @@ syncnet_ckpt_dir: ''
 audio_type: hubert # hubert | mfcc | mel
 lambda_mse_exp: 0.5
 lambda_mse_lm3d: 0.5
-lambda_lap_exp: 1.0
+lambda_lap_exp: 2.0
 lambda_kl: 0.02
 lambda_kl_t1: 2000
 lambda_kl_t2: 2000

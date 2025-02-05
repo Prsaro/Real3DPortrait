@@ -1,3 +1,5 @@
+import sys
+sys.path.append("/zjs/")
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 import random
@@ -330,53 +332,53 @@ def extract_segment_job(
                 img = img_name
             img_lst.append(img)
 
-        print("| Extracting Segmaps && Saving...")
-        args = []
-        segmap_mask_lst = []
-        # preparing parameters for segment
-        for i in range(len(img_lst)):
-            img_name = img_names[i]
-            img = img_lst[i]
-            if multiprocess_enable: # create seg_model in subprocesses here
-                options = seg_model.options
-                segmenter_arg = None
-            else: # use seg_model of this process
-                options = None
-                segmenter_arg = segmenter
-            arg = (img_name, img, options, segmenter_arg, store_in_memory)
-            args.append(arg)
+        # print("| Extracting Segmaps && Saving...")
+        # args = []
+        # segmap_mask_lst = []
+        # # preparing parameters for segment
+        # for i in range(len(img_lst)):
+        #     img_name = img_names[i]
+        #     img = img_lst[i]
+        #     if multiprocess_enable: # create seg_model in subprocesses here
+        #         options = seg_model.options
+        #         segmenter_arg = None
+        #     else: # use seg_model of this process
+        #         options = None
+        #         segmenter_arg = segmenter
+        #     arg = (img_name, img, options, segmenter_arg, store_in_memory)
+        #     args.append(arg)
             
-        if multiprocess_enable:
-            for (_, res) in multiprocess_run_tqdm(segment_and_generate_for_image_job, args=args, num_workers=16, desc='generating segment images in multi-processes...'):
-                segmap_mask = res
-                segmap_mask_lst.append(segmap_mask)
-        else:
-            for index in tqdm.tqdm(range(len(img_lst)), desc="generating segment images in single-process..."):
-                segmap_mask = segment_and_generate_for_image_job(*args[index])
-                segmap_mask_lst.append(segmap_mask)
-        print("| Extracted Segmaps Done.")
+        # if multiprocess_enable:
+        #     for (_, res) in multiprocess_run_tqdm(segment_and_generate_for_image_job, args=args, num_workers=16, desc='generating segment images in multi-processes...'):
+        #         segmap_mask = res
+        #         segmap_mask_lst.append(segmap_mask)
+        # else:
+        #     for index in tqdm.tqdm(range(len(img_lst)), desc="generating segment images in single-process..."):
+        #         segmap_mask = segment_and_generate_for_image_job(*args[index])
+        #         segmap_mask_lst.append(segmap_mask)
+        # print("| Extracted Segmaps Done.")
         
-        print("| Extracting background...")
-        bg_prefix_name = f"bg{BG_NAME_MAP[background_method]}"
-        bg_img = extract_background(img_lst, segmap_mask_lst, method=background_method, device=device, mix_bg=mix_bg)
-        if nerf:
-            out_img_name = video_name.replace("/raw/", "/processed/").replace(".mp4", f"/{bg_prefix_name}.jpg")
-        else:
-            out_img_name = video_name.replace("/video/", f"/{bg_prefix_name}_img/").replace(".mp4", ".jpg")
-        save_rgb_image_to_path(bg_img, out_img_name)
-        print("| Extracted background done.")
+        # print("| Extracting background...")
+        # bg_prefix_name = f"bg{BG_NAME_MAP[background_method]}"
+        # bg_img = extract_background(img_lst, segmap_mask_lst, method=background_method, device=device, mix_bg=mix_bg)
+        # if nerf:
+        #     out_img_name = video_name.replace("/raw/", "/processed/").replace(".mp4", f"/{bg_prefix_name}.jpg")
+        # else:
+        #     out_img_name = video_name.replace("/video/", f"/{bg_prefix_name}_img/").replace(".mp4", ".jpg")
+        # save_rgb_image_to_path(bg_img, out_img_name)
+        # print("| Extracted background done.")
         
-        print("| Extracting com_imgs...")
-        com_prefix_name = f"com{BG_NAME_MAP[background_method]}"
-        for i in tqdm.trange(len(img_names), desc='extracting com_imgs'):
-            img_name = img_names[i]
-            com_img = refresh_image(img_lst[i]).copy()
-            segmap = refresh_segment_mask(segmap_mask_lst[i])
-            bg_part = segmap[0].astype(bool)[..., None].repeat(3,axis=-1)
-            com_img[bg_part] = bg_img[bg_part]
-            out_img_name = img_name.replace("/gt_imgs/", f"/{com_prefix_name}_imgs/")
-            save_rgb_image_to_path(com_img, out_img_name)
-        print("| Extracted com_imgs done.")
+        # print("| Extracting com_imgs...")
+        # com_prefix_name = f"com{BG_NAME_MAP[background_method]}"
+        # for i in tqdm.trange(len(img_names), desc='extracting com_imgs'):
+        #     img_name = img_names[i]
+        #     com_img = refresh_image(img_lst[i]).copy()
+        #     segmap = refresh_segment_mask(segmap_mask_lst[i])
+        #     bg_part = segmap[0].astype(bool)[..., None].repeat(3,axis=-1)
+        #     com_img[bg_part] = bg_img[bg_part]
+        #     out_img_name = img_name.replace("/gt_imgs/", f"/{com_prefix_name}_imgs/")
+        #     save_rgb_image_to_path(com_img, out_img_name)
+        # print("| Extracted com_imgs done.")
         
         return 0
     except Exception as e:
@@ -412,9 +414,9 @@ def get_todo_vid_names(vid_names, background_method='knn'):
 if __name__ == '__main__':
     import argparse, glob, tqdm, random
     parser = argparse.ArgumentParser()
-    parser.add_argument("--vid_dir", default='/home/tiger/datasets/raw/TH1KH_512/video')
-    parser.add_argument("--ds_name", default='TH1KH_512')
-    parser.add_argument("--num_workers", default=48, type=int)
+    parser.add_argument("--vid_dir", default='/data/cleaned_data/video')
+    parser.add_argument("--ds_name", default='cleaned_data')
+    parser.add_argument("--num_workers", default=16, type=int)
     parser.add_argument("--seed", default=0, type=int)
     parser.add_argument("--process_id", default=0, type=int)
     parser.add_argument("--total_process", default=1, type=int)
@@ -446,9 +448,9 @@ if __name__ == '__main__':
     else: # 处理整个数据集
         if ds_name in ['lrs3_trainval']:
             vid_name_pattern = os.path.join(vid_dir, "*/*.mp4")
-        elif ds_name in ['TH1KH_512', 'CelebV-HQ']:
+        elif ds_name in ['TH1KH_512', 'CelebV-HQ', 'cleaned_data']:
             vid_name_pattern = os.path.join(vid_dir, "*.mp4")
-        elif ds_name in ['lrs2', 'lrs3', 'voxceleb2']:
+        elif ds_name in ['lrs2', 'lrs3', 'voxceleb2', 'CMLR']:
             vid_name_pattern = os.path.join(vid_dir, "*/*/*.mp4")
         elif ds_name in ["RAVDESS", 'VFHQ']:
             vid_name_pattern = os.path.join(vid_dir, "*/*/*/*.mp4")
